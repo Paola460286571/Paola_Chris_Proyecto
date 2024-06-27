@@ -1,0 +1,496 @@
+//CODIGO: CONEXION
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using MySql.Data.MySqlClient;
+
+namespace proyectoPOHCRL
+{
+
+    // Clase Conexion: Esta clase se encarga de establecer la conexión con la base de datos
+    class Conexion
+    {
+        public static MySqlConnection conex() // Método conex(): Este método establece la conexión con la base de datos y devuelve la conexión
+        {
+            // Aquí se establece la cadena de conexión con la base de datos
+            //solo cambia el database al nombre de la base de datos CADENA DE CONEXION
+            string servidor = "server=localhost; database=proyectopc; Uid=root; pwd=SouriS879";
+            MySqlConnection conexionBD = new MySqlConnection(servidor);
+
+            // Se utiliza un bloque try-catch para manejar cualquier error que pueda ocurrir al establecer la conexión.
+            try
+            {
+                return conexionBD;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message + ex.StackTrace);
+                return null;
+            }
+        }
+    }
+}
+//CODIGO: FORMS 1
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using MySql.Data.MySqlClient;
+
+namespace proyectoPOHCRL
+{
+    public partial class Form1 : Form
+    {
+        public Form1()
+        {
+            InitializeComponent();
+        }
+
+        private void btnConectar_Click(object sender, EventArgs e)
+        {
+            String usuario = txtUsuario.Text;
+            String pass = txtPassword.Text;
+            // Verificación de usuario
+            if (txtUsuario.Text == "usuario" && txtPassword.Text == "123")
+            {
+                MessageBox.Show("Valido");
+                MySqlConnection conexionBD = Conexion.conex();
+                try
+                {
+                    conexionBD.Open();
+                    MySqlCommand comando = new MySqlCommand();
+                    comando.Connection = conexionBD; //CONSULTA
+                    comando.CommandText = ("Insert into login(usuario,password) values('" + txtUsuario.Text + "','" + txtPassword.Text + "' );"); //esto es para guardarlo
+                    comando.ExecuteNonQuery();
+                    conexionBD.Close();//siempre hay que cerrarlo
+                }
+                catch (Exception r)
+                {
+
+                    MessageBox.Show(r.Message + r.StackTrace);
+                }
+                MessageBox.Show("datos registrados correctamente");
+                txtUsuario.Text = "";
+                txtPassword.Text = "";
+                Form2 ventana = new Form2();
+                ventana.Visible = true;
+                this.Hide();
+             
+            }
+            else
+            {
+                MessageBox.Show("Invalido");
+                txtUsuario.Text = "";
+                txtPassword.Text = "";
+
+            }
+        }
+
+        private void btnConectar_KeyDown(object sender, KeyEventArgs e)
+        {
+
+        }
+
+        private void txtUsuario_TextChanged(object sender, EventArgs e)
+        {
+           
+        }
+
+        private void txtPassword_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void txtUsuario_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter) // enter
+            {
+                btnConectar_Click(sender, e);
+            }
+        }
+
+        private void txtPassword_KeyDown(object sender, KeyEventArgs e)
+        {
+            if(e.KeyCode == Keys.Enter) { //enter
+            btnConectar_Click(sender, e);
+            }
+        }
+    }
+}
+//CODIGO FORMS 2
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using MySql.Data.MySqlClient;
+
+namespace proyectoPOHCRL
+{
+    public partial class Form2 : Form
+    {
+        public Form2()
+        {
+            InitializeComponent();
+            MostrarProductos();
+            //Para que los botones de eliminar y editar esten habilitados es forzoso que se realice una búsqueda de otra manera estos deben estar deshabilitados. 
+            btnEliminar.Enabled = false;
+            btnActualizar.Enabled = false;
+        }
+
+        private void btnGuardar_Click(object sender, EventArgs e)
+        {
+            //esto nos ayuda a validar para que ninguno de los campos se quede vacío. 
+            if (!ValidarCampos())
+            {
+                return;
+            }
+            //Que los campos código, precio y existencia sean solo números.
+            if (!int.TryParse(txtCodigo.Text, out int codigo))
+            {
+                MessageBox.Show("El campo 'Codigo' debe ser un número entero.", "Error de validación", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (!decimal.TryParse(txtPrecio.Text, out decimal precio))
+            {
+                MessageBox.Show("El campo 'Precio' debe ser un número.", "Error de validación", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            if (!int.TryParse(txtExistencias.Text, out int existencias))
+            {
+                MessageBox.Show("El campo 'Existencias' debe ser un número entero.", "Error de validación", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (int.TryParse(txtNombre.Text, out _) || int.TryParse(txtDescripcion.Text, out _) || int.TryParse(txtCategorias.Text, out _))
+            {
+                MessageBox.Show("Los campos 'Nombre', 'Descripción' y 'Categorías' no deben contener solo números.", "Error de validación", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            MySqlConnection conexionBD = Conexion.conex();
+            try
+            {
+                //Si se ingresa un código que ya exista indica que ese código no se pueda usar. 
+                conexionBD.Open();
+                MySqlCommand verificarComando = new MySqlCommand("SELECT COUNT(*) FROM registro WHERE codigo = @codigo", conexionBD);
+                verificarComando.Parameters.AddWithValue("@codigo", txtCodigo.Text);
+                int count = Convert.ToInt32(verificarComando.ExecuteScalar());
+                if (count > 0)
+                {
+                    MessageBox.Show("El código ya existe, por favor ingresa un código diferente.");
+                }
+                else
+                {
+                    MySqlCommand comando = new MySqlCommand();
+                    comando.Connection = conexionBD;
+                    comando.CommandText = "INSERT INTO registro(codigo, nombre, descripcion, precio, existencias, categorias) VALUES(@codigo, @nombre, @descripcion, @precio, @existencias, @categorias)";
+                    comando.Parameters.AddWithValue("@codigo", txtCodigo.Text);
+                    comando.Parameters.AddWithValue("@nombre", txtNombre.Text);
+                    comando.Parameters.AddWithValue("@descripcion", txtDescripcion.Text);
+                    comando.Parameters.AddWithValue("@precio", txtPrecio.Text);
+                    comando.Parameters.AddWithValue("@existencias", txtExistencias.Text);
+                    comando.Parameters.AddWithValue("@categorias", txtCategorias.Text);
+                    comando.ExecuteNonQuery();
+                    MessageBox.Show("Datos registrados correctamente");
+                    MostrarProductos();
+
+
+                    //MySqlCommand comando = new MySqlCommand();
+                    //comando.Connection = conexionBD;
+                    // comando.CommandText = ("Insert into registro(codigo, nombre, descripcion, precio, existencias, categorias) values('" + txtCodigo.Text + "','" + txtNombre.Text + "','" + txtDescripcion.Text + "','" + txtPrecio.Text + "','" + txtExistencias.Text + "','" + txtCategorias.Text + "' );"); //esto es para guardarlo
+                    //comando.ExecuteNonQuery();
+                    //conexionBD.Close();//siempre hay que cerrarlo
+                }
+            }
+            catch (Exception b)
+            {
+                MessageBox.Show("No se guardó correctamente, hay un error");
+                //  MessageBox.Show(b.Message + b.StackTrace);
+            }
+            finally
+            {
+                conexionBD.Close();//siempre hay que cerrarlo
+                //Cada operación limpiara las cajas de texto una vez hecha la operación. 
+                LimpiarCampos();
+            }
+           
+        
+        }
+        //No desea que ninguno de los campos se quede vacío. 
+        private bool ValidarCampos()
+        {
+            List<string> camposFaltantes = new List<string>();
+
+            if (string.IsNullOrWhiteSpace(txtCodigo.Text)) camposFaltantes.Add("Código");
+            if (string.IsNullOrWhiteSpace(txtNombre.Text)) camposFaltantes.Add("Nombre");
+            if (string.IsNullOrWhiteSpace(txtDescripcion.Text)) camposFaltantes.Add("Descripción");
+            if (string.IsNullOrWhiteSpace(txtPrecio.Text)) camposFaltantes.Add("Precio");
+            if (string.IsNullOrWhiteSpace(txtExistencias.Text)) camposFaltantes.Add("Existencias");
+            if (string.IsNullOrWhiteSpace(txtCategorias.Text)) camposFaltantes.Add("Categorías");
+
+            if (camposFaltantes.Count > 0)
+            {
+                MessageBox.Show("Falta llenar los siguientes campos: " + string.Join(", ", camposFaltantes), "Error de validación", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+
+            return true;
+        }
+        private void LimpiarCampos()
+        //Cada operación limpiara las cajas de texto una vez hecha la operación. 
+        {
+            txtCodigo.Text = "";
+            txtNombre.Text = "";
+            txtDescripcion.Text = "";
+            txtPrecio.Text = "";
+            txtExistencias.Text = "";
+            txtCategorias.Text = "";
+            // Deshabilitar los botones de eliminar y editar al limpiar los campos
+            btnEliminar.Enabled = false;
+            btnActualizar.Enabled = false;
+        }
+        private void btnLimpiar_Click(object sender, EventArgs e)
+        {
+            LimpiarCampos();
+            //Cada operación limpiara las cajas de texto una vez hecha la operación. 
+        }
+
+        private void btnEliminar_Click(object sender, EventArgs e)
+        {
+            DialogResult result = MessageBox.Show("¿Estás seguro de que quieres eliminar este registro?", "Confirmación de actualización", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+            // Verificar si el usuario seleccionó "Yes"
+            if (result == DialogResult.Yes)
+            {
+                MySqlConnection conexionBD = Conexion.conex();
+                try
+                {
+                    conexionBD.Open();
+                    MySqlCommand comando = new MySqlCommand();
+                    comando.Connection = conexionBD;
+                    comando.CommandText = "DELETE FROM registro WHERE codigo = @codigo";
+                    comando.Parameters.AddWithValue("@codigo", txtCodigo.Text);
+                    int filasAfectadas = comando.ExecuteNonQuery();
+                    if (filasAfectadas > 0)
+                    {
+                        MessageBox.Show("Datos eliminados correctamente");
+                        LimpiarCampos();
+                        MostrarProductos();
+
+
+                        //Al momento de borrar un elemento de su BD los campos de las cajas de texto se limpien automáticamente. 
+                        //Cada operación limpiara las cajas de texto una vez hecha la operación. 
+                        // Deshabilitar boton de eliminar después de la eliminación
+                        btnEliminar.Enabled = false;
+                     
+                    }
+                    else
+                    {
+                        MessageBox.Show("No se encontraron datos para eliminar con el código proporcionado");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Error al eliminar datos: " + ex.Message);
+                }
+                finally
+                {
+                    conexionBD.Close();
+                }
+            }
+        }
+
+        private void btnSalir_Click(object sender, EventArgs e)
+        {
+            //this.Close();
+            Application.Exit();
+        }
+
+        private void label1_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void btnActualizar_Click(object sender, EventArgs e)
+        {
+            if (!ValidarCampos())
+            {
+                return;
+            }
+            if (!int.TryParse(txtCodigo.Text, out int codigo))
+            {
+                MessageBox.Show("El campo 'Codigo' debe ser un número entero.", "Error de validación", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (!decimal.TryParse(txtPrecio.Text, out decimal precio))
+            {
+                MessageBox.Show("El campo 'Precio' debe ser un número.", "Error de validación", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (!int.TryParse(txtExistencias.Text, out int existencias))
+            {
+                MessageBox.Show("El campo 'Existencias' debe ser un número entero.", "Error de validación", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+        
+
+
+                DialogResult result = MessageBox.Show("¿Estás seguro de que quieres actualizar este registro?", "Confirmación de actualización", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+                // Verificar si el usuario seleccionó "Yes"
+                if (result == DialogResult.Yes)
+                {
+                    MySqlConnection conexionBD = Conexion.conex();
+                    try
+                    {
+                        conexionBD.Open();
+                        MySqlCommand comando = new MySqlCommand();
+                        comando.Connection = conexionBD;
+                        comando.CommandText = "UPDATE registro SET nombre = @nombre, descripcion = @descripcion, precio = @precio, existencias = @existencias, categorias = @categorias WHERE codigo = @codigo";
+                        comando.Parameters.AddWithValue("@codigo", txtCodigo.Text);
+                        comando.Parameters.AddWithValue("@nombre", txtNombre.Text);
+                        comando.Parameters.AddWithValue("@descripcion", txtDescripcion.Text);
+                        comando.Parameters.AddWithValue("@precio", txtPrecio.Text);
+                        comando.Parameters.AddWithValue("@existencias", txtExistencias.Text);
+                        comando.Parameters.AddWithValue("@categorias", txtCategorias.Text);
+
+                        int filasAfectadas = comando.ExecuteNonQuery();
+                        if (filasAfectadas > 0)
+                        {
+                            MessageBox.Show("Datos actualizados correctamente");
+                        MostrarProductos();
+                        // LimpiarCampos();
+                        //Cada operación limpiara las cajas de texto una vez hecha la operación. 
+                        // Deshabilitar boton de actualizar después de la actualización
+                        btnActualizar.Enabled = false;
+                        
+
+                    }
+                    else
+                        {
+                            MessageBox.Show("No se encontraron datos para actualizar con el código proporcionado");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Error al actualizar datos: " + ex.Message);
+                    }
+                    finally
+                    {
+                        conexionBD.Close();
+                    }
+                }
+            }
+            private void btnBuscar_Click(object sender, EventArgs e)
+            {
+                // Obtener el valor ingresado en el campo de texto del código del producto
+                string codigo = txtCodigo.Text;
+
+                // Consulta SQL para seleccionar el producto con el código ingresado
+                string consulta = "SELECT * FROM registro WHERE codigo = @codigo";
+
+                // Crear una conexión a la base de datos
+                MySqlConnection conexionBD = Conexion.conex();
+
+                // Crear un nuevo comando SQL y pasar la consulta y la conexión
+                MySqlCommand mySqlCommand = new MySqlCommand(consulta, conexionBD);
+
+                // Agregar parámetro para evitar la inyección SQL y asignar el valor del código
+                mySqlCommand.Parameters.AddWithValue("@codigo", codigo);
+
+                // Ejecutar la consulta y leer el resultado
+                MySqlDataReader mySqlDataReader = null;
+
+                try
+                {
+                    conexionBD.Open();
+                    mySqlDataReader = mySqlCommand.ExecuteReader();
+
+                    // Verificar si se encontró un producto con el código ingresado
+                    if (mySqlDataReader.Read())
+                    {
+                        // Mostrar los datos del producto encontrado en los campos de texto
+                        txtNombre.Text = mySqlDataReader.GetString("nombre");
+                        txtDescripcion.Text = mySqlDataReader.GetString("descripcion");
+                        txtPrecio.Text = mySqlDataReader.GetDecimal("precio").ToString();
+                        txtExistencias.Text = mySqlDataReader.GetInt32("existencias").ToString();
+                        txtCategorias.Text = mySqlDataReader.GetString("categorias");
+
+                        MessageBox.Show("Producto encontrado");
+                    MostrarProductos();
+                    // Habilitar los botones de eliminar y actualizar si se encuentra un producto
+                    btnEliminar.Enabled = true;
+                        btnActualizar.Enabled = true;
+                    }
+                    else
+                    {
+                        MessageBox.Show("Producto no encontrado");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Error al buscar el producto: " + ex.Message);
+                }
+                finally
+                {
+                    // Cerrar el lector de datos y la conexión
+                    if (mySqlDataReader != null)
+                    {
+                        mySqlDataReader.Close();
+                    }
+                    conexionBD.Close();
+                }
+            }
+
+            private void txtPrecio_TextChanged(object sender, EventArgs e)
+            {
+
+            }
+        public void MostrarProductos() // Método para mostrar los productos en el DataGridView
+        {
+            MySqlConnection conexionBD = Conexion.conex(); // Crea una conexión a la base de datos
+            try
+            {
+                conexionBD.Open(); // Abre la conexión
+                MySqlCommand comando = new MySqlCommand(); // Crea un nuevo comando SQL
+                comando.Connection = conexionBD; // Establece la conexión del comando
+                comando.CommandText = "SELECT * FROM registro"; // Establece la consulta SQL para seleccionar todos los productos
+
+                DataTable dt = new DataTable(); // Crea un nuevo DataTable
+                dt.Load(comando.ExecuteReader()); // Carga los datos del comando al DataTable
+
+                dataGridView1.DataSource = dt; // Establece el origen de datos del DataGridView al DataTable
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error al cargar datos: " + ex.Message); // Muestra un mensaje de error si ocurre una excepción
+            }
+            finally
+            {
+                conexionBD.Close(); // Cierra la conexión
+            }
+        }
+        private void dataGridView1_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+
+        }
+    }
+        
+       
+    }
+    
